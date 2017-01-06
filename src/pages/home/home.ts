@@ -1,20 +1,50 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 
-import { NavController, AlertController, ActionSheetController } from 'ionic-angular';
-import { AngularFire, FirebaseListObservable } from 'angularfire2';
+import { NavController, AlertController, ActionSheetController, LoadingController } from 'ionic-angular';
+import { AngularFire, FirebaseListObservable, FirebaseAuthState } from 'angularfire2';
+
+import { AuthService } from '../../providers/auth-service';
+import { SigninPage } from '../signin/signin';
 
 @Component({
   selector: 'page-home',
   templateUrl: 'home.html'
 })
-export class HomePage implements OnInit {
+export class HomePage {
 
   songs: FirebaseListObservable<any>;
 
-  constructor(public navCtrl: NavController, public alertCtrl: AlertController, public actionSheetCtrl: ActionSheetController, public af: AngularFire) {}
+  constructor(
+    public navCtrl: NavController, 
+    public alertCtrl: AlertController, 
+    public actionSheetCtrl: ActionSheetController, 
+    public af: AngularFire,
+    private authService: AuthService,
+    private loadingCtrl: LoadingController
+  ) {}
 
-  ngOnInit(): void {
+  ionViewCanEnter(): boolean {
+    console.log('can enter called');
+    return this.authService.isLoggedIn;
+  }
+
+  ionViewDidEnter(): void {
+
+    let loading = this.loadingCtrl.create({
+      content: 'Loading data...'
+    });;
+    loading.present();
+
+    this.authService.getAuth().subscribe((authState: FirebaseAuthState) => {
+      if (!authState) {
+        this.navCtrl.setRoot(SigninPage);
+      }
+    });
+
     this.songs = this.af.database.list('/songs');
+    this.songs.subscribe(() => {
+      loading.dismiss();
+    });
   }
 
   addSong(): void {
@@ -107,6 +137,23 @@ export class HomePage implements OnInit {
       ]
     });
     prompt.present();
+  }
+
+  logout(): void {
+    this.alertCtrl.create({
+      message: 'Do you want to quit?',
+      buttons: [
+        {
+          text: 'Yes',
+          handler: () => {
+            this.authService.logout();
+          }
+        },
+        {
+          text: 'No'
+        }
+      ]
+    }).present();
   }
 
 }
